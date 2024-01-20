@@ -1,4 +1,4 @@
-# RSCodeStorage
+# RSRepository
 
 
 
@@ -15,14 +15,14 @@ Already a pro? Just edit this README.md and make it your own. Want to make it ea
 
 ```
 cd existing_repo
-git remote add origin https://gitlab.com/codes9920303/RSCodeStorage.git
+git remote add origin https://gitlab.com/codes9920303/RSRepository.git
 git branch -M main
 git push -uf origin main
 ```
 
 ## Integrate with your tools
 
-- [ ] [Set up project integrations](https://gitlab.com/codes9920303/RSCodeStorage/-/settings/integrations)
+- [ ] [Set up project integrations](https://gitlab.com/codes9920303/RSRepository/-/settings/integrations)
 
 ## Collaborate with your team
 
