@@ -1,5 +1,5 @@
 import turtle as t
-from math import pi, sqrt
+from math import sqrt
 # 配置
 size = 25
 t.bgcolor('red')
