@@ -26,7 +26,7 @@ t.pendown()
 t.forward(125)
 t.backward(125)
 t.left(90)
-t.circle(150, 180)
+t.circle(150, 200)
 for i in range(50):
     size -= 1/2
     t.pensize(size)
