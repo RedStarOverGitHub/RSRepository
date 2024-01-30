@@ -1,10 +1,9 @@
 from os import popen, system
 print('正在扫描需要更新的库...')
-try:
-    # 定义需要更新的第三方库列表
-    outdated = popen('pip list -o').read().split('\n')[2:-1]
-    outdatedLibs = [(i.split()[0], i.split()[1], i.split()[2]) for i in outdated]
-except:
+# 定义需要更新的第三方库列表
+outdated = popen('pip list -o').read().split('\n')[2:-1]
+outdatedLibs = [(i.split()[0], i.split()[1], i.split()[2]) for i in outdated]
+if len(outdatedLibs) == 0:
     print('没有需要更新的库！')
 else:
     print('以下库需要更新：')
