@@ -25,3 +25,4 @@ else:
             break
         else:
             print('无效输入！')
+system('pause')
