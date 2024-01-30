@@ -16,7 +16,7 @@ else:
         if opt.lower() == 'y':
             for i in range(len(outdatedLibs)):
                 print(f'正在更新{outdatedLibs[i][0]}...（第{i+1}项，共{len(outdatedLibs)}）')
-                system(f'pip install {outdatedLibs[i[0]]} -U')
+                system(f'pip install {outdatedLibs[i][0]} -U')
                 print(f'{outdatedLibs[i][0]}更新完成！')
             print('所有库更新完成！')
             break
