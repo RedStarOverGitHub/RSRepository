@@ -4,6 +4,9 @@
 创建了一个鸡音盒，其中包含可点击的按钮，点击时会播放不同的声音。
 """
 from pgzrun import *
+from pgzero.actor import *
+from pgzero.rect import *
+from pgzero.keyboard import *
 
 # 窗口大小：1010×576
 WIDTH = 1010
@@ -62,8 +65,6 @@ def draw():
     bg.draw()
     leftSword.draw()
     rightSword.draw()
-    leftSword.show = pg == 2 or pg == 3
-    rightSword.show = pg == 1 or pg == 2
     screen.draw.text('鸡音盒', center=(WIDTH/2, 50),
                      color=(16, 73, 229), fontsize=32, fontname='msyh')
     drawButton(b1, b1t)
@@ -118,19 +119,11 @@ def on_mouse_down(pos):
         sounds.yahhmgn.play() if pg == 1 else sounds.grlxs.play() if pg == 2 else screen.draw.text(
             '功能待开发', center=(WIDTH/2, HEIGHT/2), color=(0, 0, 0), fontsize=32, fontname='msyh')
     if leftSword.collidepoint(pos):
-        if pg == 3:
+        if pg != 1:
             pg -= 1
-        elif pg == 2:
-            pg -= 1
-        elif pg == 1:
-            pg = 3
     if rightSword.collidepoint(pos):
-        if pg == 1:
+        if pg != 3:
             pg += 1
-        elif pg == 2:
-            pg += 1
-        elif pg == 3:
-            pg = 1
     # 按钮内容重新定义
     b1t = '鸡' if pg == 1 else '唱' if pg == 2 else '你'
     b2t = '你' if pg == 1 else '跳' if pg == 2 else '干'
@@ -153,19 +146,11 @@ def on_key_down(key):
     """
     global pg, b1t, b2t, b3t, b4t, b5t, b6t, b7t, b8t, b9t, b10t, b11t
     if key == keys.LEFT:
-        if pg == 3:
+        if pg != 1:
             pg -= 1
-        elif pg == 2:
-            pg -= 1
-        elif pg == 1:
-            pg = 3
     if key == keys.RIGHT:
-        if pg == 1:
+        if pg != 3:
             pg += 1
-        elif pg == 2:
-            pg += 1
-        elif pg == 3:
-            pg = 1
     if key in (keys.LCTRL, keys.RCTRL) and pg == 1:
         sounds.ctrl.play()
     if key == keys.J and pg == 1:
