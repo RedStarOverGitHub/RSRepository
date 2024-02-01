@@ -1,3 +1,5 @@
+#!usr/bin/env python3
+# coding=utf-8
 from os import popen, system
 print('正在扫描需要更新的库...')
 # 定义需要更新的第三方库列表
