@@ -16,13 +16,23 @@ else:
     while True:
         opt = input('是否更新？[Y/n]')  # 判断是否更新库
         if opt.lower() == 'y':
+            fatil = False
             # 更新库
             for i in range(len(outdatedLibs)):
                 print(f'正在更新{outdatedLibs[i][0]}...（第{i+1}项，共{len(outdatedLibs)}项）')
-                system(f'pip install {outdatedLibs[i][0]} -U')
-                print(f'{outdatedLibs[i][0]}更新完成！')
-            print('所有库更新完成！')
-            break
+                upgradeLib =  system(f'pip install {outdatedLibs[i][0]} -U')
+                if upgradeLib == 0:
+                    print(f'{outdatedLibs[i][0]}更新完成！')
+                else:
+                    print(f'{outdatedLibs[i][0]}更新失败！')
+                    fatil = True
+                    break
+            if not fatil:
+                print('所有库更新完成！')
+                break
+            else:
+                print('部分库更新失败！')
+                break
         elif opt.lower() == 'n':
             break
         else:
