@@ -24,7 +24,7 @@ if %errorlevel% == 0 (
 ) else (
     echo "提交代码失败，请按任意键退出"
     pause > nul
-    exit /b
+    exit /b 1
 )
 rem push代码
 echo "开始push代码..."
@@ -36,5 +36,5 @@ if %errorlevel% == 0 (
 ) else (
     echo "push代码失败，请按任意键退出"
     pause > nul
-    exit /b
+    exit /b 1
 )
