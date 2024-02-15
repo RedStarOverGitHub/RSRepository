@@ -15,9 +15,6 @@ pause > nul
 rem 提交代码
 echo "开始提交代码..."
 set /p commitMessage="请输入提交信息："
-if %commitMessage% == "" (
-    set commitMessage="已提交文件"
-)
 git commit -a -m %commitMessage%
 if %errorlevel% == 0 (
     echo "提交代码成功"
