@@ -16,7 +16,7 @@ else:
     while True:
         opt = input('是否更新？[Y/n]')  # 判断是否更新库
         if opt.lower() == 'y':
-            fatil = False
+            fail = False
             # 更新库
             for i in range(len(outdatedLibs)):
                 print(f'正在更新{outdatedLibs[i][0]}...（第{i+1}项，共{len(outdatedLibs)}项）')
@@ -25,9 +25,9 @@ else:
                     print(f'{outdatedLibs[i][0]}更新完成！')
                 else:
                     print(f'{outdatedLibs[i][0]}更新失败！')
-                    fatil = True
+                    fail = True
                     break
-            if not fatil:
+            if not fail:
                 print('所有库更新完成！')
                 break
             else:

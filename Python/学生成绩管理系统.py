@@ -39,7 +39,7 @@ class Main:
 
     def __load(self):  # 导入信息
         path = filedia.askopenfilename(filetypes=[('文本文件', '*.txt'), ('所有文件', '*.*')])
-        fatil = False  # 信息是否导入失败
+        fail = False  # 信息是否导入失败
         if path:
             try:
                 with open(path, 'r', encoding='utf-8') as f:
@@ -49,16 +49,16 @@ class Main:
                             if len(message) != 6:
                                 msgbox.showerror('错误', '导入文件失败')
                                 students.clear()
-                                fatil = True
+                                fail = True
                                 break
                             students[int(message[0])] = [message[1], message[2], float(message[3]),
                                                          float(message[4]), float(message[5])]
                         except:
                             msgbox.showerror('错误', '导入文件失败')
                             students.clear()
-                            fatil = True
+                            fail = True
                             break
-                if not fatil:
+                if not fail:
                     self.state = 'loaded'
                     self.filePath = path
             except:
