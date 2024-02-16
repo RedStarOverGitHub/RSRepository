@@ -1,3 +1,5 @@
+#!usr/bin/env python3
+# coding=utf-8
 def isT(x):
     xDDList = [i for i in range(1, x+1) if x % i == 0 and len(str(i)) == 2]
     for i in range(len(xDDList)):

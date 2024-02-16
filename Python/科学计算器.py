@@ -104,7 +104,7 @@ def stdNumber(value, /):
             return complex(eval(str(value)))
         except (TypeError, AttributeError):
             return eval(str(value))
-        
+
 
 def screenUpdate():
     """
@@ -230,7 +230,7 @@ def calculate():
         else:
             if str(eval(replace(view.get(), replaceDict))) in ('set()', 'EmptySet'):  # 将所有表示空集的文字替换为Ø
                 calculateStack.append(str(replace(str(eval(replace(view.get(), replaceDict))),
-                                              {'set()': 'Ø', 'EmptySet': 'Ø'})))
+                                                  {'set()': 'Ø', 'EmptySet': 'Ø'})))
             elif type(eval(replace(view.get(), replaceDict))) == bool:  # 将布尔值正确表示为True/False
                 calculateStack.append(str(eval(replace(view.get(), replaceDict))))
             else:

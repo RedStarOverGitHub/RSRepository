@@ -521,7 +521,7 @@ def mainWindow():
     ttk.Button(main, text='BMI计算器', command=BMICaluclator).place(relx=0, rely=3/4, relwidth=1/3, relheight=1/4)
     ttk.Button(main, text='分词器', command=tokenizer).place(relx=1/3, rely=3/4, relwidth=1/3, relheight=1/4)
     ttk.Button(main, text='速度单位转换器', command=velocityUnitCoverter).place(relx=2/3, rely=3/4, relwidth=1/3,
-                                                                       relheight=1/4)
+                                                                         relheight=1/4)
     main.mainloop()
 
 

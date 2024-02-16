@@ -1,3 +1,5 @@
+#!usr/bin/env python3
+# coding=utf-8
 SYnDict = {}
 for i in range(3, 10):
     for j in range(4, 10):

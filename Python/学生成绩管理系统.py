@@ -1,8 +1,14 @@
+#!usr/bin/env python3
+# coding=utf-8
+"""
+本项目开源，可做出新增学科、学生信息的选项
+"""
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as filedia
 import tkinter.messagebox as msgbox
 import tkinter.simpledialog as sdialog
+
 students = {}  # 学生信息存储字典
 
 
@@ -151,7 +157,7 @@ class Main:
         sortChinese.place(relx=1/6, rely=0, relwidth=1/6, relheight=1)
         sortMath = ttk.Radiobutton(sortOption, text='数学', variable=sortType, value=2, command=updateRank)
         sortMath.place(relx=2/6, rely=0, relwidth=1/6, relheight=1)
-        sortEnglish = ttk.Radiobutton(sortOption, text='英语', variable=sortType, value=3, command=updateRank)        
+        sortEnglish = ttk.Radiobutton(sortOption, text='英语', variable=sortType, value=3, command=updateRank)
         sortEnglish.place(relx=3/6, rely=0, relwidth=1/6, relheight=1)
         sortTotal = ttk.Radiobutton(sortOption, text='总分', variable=sortType, value=4, command=updateRank)
         sortTotal.place(relx=4/6, rely=0, relwidth=1/6, relheight=1)
