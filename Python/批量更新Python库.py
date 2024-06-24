@@ -20,7 +20,7 @@ else:
     for i in outdatedLibs:
         print(f'{i[0]}: ({i[1]}, {i[2]})')
     while True:
-        opt = input('是否更新？[Y/n]')  # 判断是否更新库
+        opt = input('是否更新？[Y/n] ')  # 判断是否更新库
         if opt.lower() == 'y':
             fail = False
 
