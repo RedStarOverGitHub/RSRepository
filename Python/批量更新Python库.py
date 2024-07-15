@@ -27,7 +27,10 @@ else:
             # 更新库
             for i in range(len(outdatedLibs)):
                 print(f'正在更新{outdatedLibs[i][0]}...（第{i+1}项，共{len(outdatedLibs)}项）')
-                upgradeLib = system(f'pip install {outdatedLibs[i][0]} -U')
+                if outdatedLibs[i][0] == "pip":
+                    upgradeLib = system(f'python -m pip install --upgrade pip')
+                else:
+                    upgradeLib = system(f'pip install {outdatedLibs[i][0]} -U')
                 if upgradeLib == 0:
                     print(f'{outdatedLibs[i][0]}更新完成！')
                 else:
