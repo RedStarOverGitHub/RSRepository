@@ -815,7 +815,6 @@
     <addaction name="actionVariable"/>
     <addaction name="actionConstant_2"/>
     <addaction name="actionUnit_2"/>
-    <addaction name="actionData_Set"/>
    </widget>
    <addaction name="menuConsonaut"/>
    <addaction name="menuOptions"/>
