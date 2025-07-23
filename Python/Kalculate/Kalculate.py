@@ -3,59 +3,1023 @@ import numpy as np
 import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
-                               QHBoxLayout, QTabWidget, QPushButton, QLabel,
-                               QListWidget, QMenuBar, QMenu, QGridLayout,
-                               QLineEdit, QMessageBox, QFileDialog, QSplitter,
-                               QSizePolicy)
+                              QHBoxLayout, QTabWidget, QPushButton, QLabel,
+                              QListWidget, QMenuBar, QMenu, QGridLayout,
+                              QLineEdit, QMessageBox, QFileDialog, QSplitter,
+                              QSizePolicy)
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtGui import QIcon
+from PySide6.QtUiTools import QUiLoader
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib
 matplotlib.use('Qt5Agg')
 
-
 class CalculatorApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Kalculate")
-        self.setGeometry(100, 100, 1000, 700)
+
+        # 加载UI文件
+        loader = QUiLoader()
+        self.ui = loader.load("qtUI.ui", self)
+        self.setCentralWidget(self.ui)
 
         # 初始化符号变量
-        self.x, self.y = sp.symbols('x y')
+        self.x, self.y, self.z = sp.symbols('x y z')
         self.current_expression = ""
         self.history = []
         self.transformations = standard_transformations + (implicit_multiplication_application,)
 
         # 角度制设置，默认为弧度制
-        self.angle_mode = "RAD"  # 可选值："DEG"(角度制) 或 "RAD"(弧度制)
+        self.angle_mode = "RAD" 
 
-        # 创建主部件
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
+        # 2nd键状态，用于控制按键功能切换
+        self.second_mode = {
+            "basic_tab": False,
+            "tab_alge": False, 
+            "trigo_tab": False,
+            "calcu_tab": False,
+            "tab_stat": False,
+            "tab_marset": False,
+            "tab_char": False
+        }
 
-        # 主布局
-        self.main_layout = QVBoxLayout(self.central_widget)
+        # 连接UI元素和信号
+        self.setup_ui_connections()
 
-        # 创建显示区域
-        self.create_display_area()
+    def setup_ui_connections(self):
+        """设置UI元素和连接信号"""
+        # 输入框
+        self.expression_input = self.ui.lineEdit
+        self.expression_input.textChanged.connect(self.on_expression_changed)
+        self.expression_input.returnPressed.connect(self.calculate)
 
-        # 创建标签页
-        self.tab_widget = QTabWidget()
-        self.main_layout.addWidget(self.tab_widget)
+        # LaTeX显示视图初始化
+        self.web_view = self.ui.webEngineView
+        self.web_view.setHtml("<html><body></body></html>")
 
-        # 创建标签页内容
-        self.create_tabs()
+        # 连接所有标签页的切换信号
+        self.ui.tabWidget.currentChanged.connect(self.on_tab_changed)
 
-        # 创建控制按钮
-        self.create_control_buttons()
+        # 连接所有按钮
+        self.connect_all_buttons()
 
-        # 创建菜单
-        self.create_menus()
+        # 显示主窗口
+        self.show()
 
-        # 连接标签页切换信号
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
-        self.show()  # 显示主窗口
+    def get_empty_latex_html(self):
+        """返回空的LaTeX HTML"""
+        return "<html><body></body></html>"
+
+    def connect_all_buttons(self):
+        """连接所有按钮"""
+        # 遍历所有标签页
+        for i in range(self.ui.tabWidget.count()):
+            tab = self.ui.tabWidget.widget(i)
+            tab_name = tab.objectName()
+
+            # 连接该标签页的所有按钮
+            for btn in tab.findChildren(QPushButton):
+                # 2nd按钮特殊处理
+                if "2nd" in btn.objectName():
+                    btn.clicked.connect(lambda checked=False, t=tab_name: self.toggle_second_mode(t))
+                else:
+                    # 其他按钮连接到通用处理函数
+                    btn.clicked.connect(lambda checked=False, button=btn: self.on_button_clicked(button))
+
+    def toggle_second_mode(self, tab_name):
+        """切换指定标签页的2nd模式"""
+        # 切换状态
+        self.second_mode[tab_name] = not self.second_mode[tab_name]
+
+        # 更新按钮显示
+        self.update_buttons_for_second_mode(tab_name)
+
+    def update_buttons_for_second_mode(self, tab_name):
+        """根据2nd模式状态更新按钮显示和功能"""
+        # 获取当前标签页
+        tab = getattr(self.ui, tab_name)
+
+        # 获取2nd按钮并高亮显示
+        second_buttons = {
+            "basic_tab": "pushButton_ans",  # 基本页没有专门的2nd按钮，临时用这个
+            "tab_alge": "pushButton_2nda",
+            "trigo_tab": "pushButton_2ndt",
+            "calcu_tab": "pushButton_2ndc",
+            "tab_stat": "pushButton_2nds",
+            "tab_marset": "pushButton_2ndms",
+            "tab_char": "pushButton_2ndch"
+        }
+
+        # 如果存在2nd按钮，高亮显示
+        if tab_name in second_buttons and hasattr(self.ui, second_buttons[tab_name]):
+            second_btn = getattr(self.ui, second_buttons[tab_name])
+            if self.second_mode[tab_name]:
+                second_btn.setStyleSheet("background-color: lightblue;")
+            else:
+                second_btn.setStyleSheet("")
+
+        # 根据不同标签页执行特定更新
+        if tab_name == "basic_tab":
+            self.update_basic_tab_buttons()
+        elif tab_name == "tab_alge":
+            self.update_algebra_tab_buttons()
+        elif tab_name == "trigo_tab":
+            self.update_trig_tab_buttons()
+        elif tab_name == "calcu_tab":
+            self.update_calculus_tab_buttons()
+        elif tab_name == "tab_stat":
+            self.update_stats_tab_buttons()
+        elif tab_name == "tab_marset":
+            self.update_matrix_tab_buttons()
+        elif tab_name == "tab_char":
+            self.update_character_tab_buttons()
+
+    def update_basic_tab_buttons(self):
+        """更新基本标签页按钮"""
+        is_second = self.second_mode["basic_tab"]
+
+        # 示例: 在2nd模式下修改某些按钮
+        button_changes = {
+            "pushButton_log": ("log", "ln"),
+            "pushButton_root": ("√", "x²")
+        }
+
+        for btn_name, (normal, second) in button_changes.items():
+            if hasattr(self.ui, btn_name):
+                btn = getattr(self.ui, btn_name)
+                btn.setText(second if is_second else normal)
+
+    def update_algebra_tab_buttons(self):
+        """更新代数标签页按钮"""
+        is_second = self.second_mode["tab_alge"]
+
+        # 代数页面按钮变化
+        button_changes = {
+            "pushButton_cefl": ("⌈a⌉", "⌊a⌋"),  # 上取整变下取整
+            "pushButton_gidp": ("[a]", "‖a‖")   # 最近整数变范数
+        }
+
+        for btn_name, (normal, second) in button_changes.items():
+            if hasattr(self.ui, btn_name):
+                btn = getattr(self.ui, btn_name)
+                btn.setText(second if is_second else normal)
+
+    def update_trig_tab_buttons(self):
+        """更新三角函数标签页按钮"""
+        is_second = self.second_mode["trigo_tab"]
+
+        # 三角函数变为反三角函数
+        button_changes = {
+            "pushButton_sin": ("sin", "asin"),
+            "pushButton_cos": ("cos", "acos"),
+            "pushButton_tan": ("tan", "atan"),
+            "pushButton_cot": ("cot", "acot"),
+            "pushButton_sec": ("sec", "asec"),
+            "pushButton_csc": ("csc", "acsc")
+        }
+
+        for btn_name, (normal, second) in button_changes.items():
+            if hasattr(self.ui, btn_name):
+                btn = getattr(self.ui, btn_name)
+                btn.setText(second if is_second else normal)
+
+    def update_calculus_tab_buttons(self):
+        """更新微积分标签页按钮"""
+        is_second = self.second_mode["calcu_tab"]
+
+        # 微积分按钮变化
+        button_changes = {
+            "pushButton_diff": ("'", "∂"),      # 普通导数变偏导数
+            "pushButton_inter": ("∫", "∬"),     # 一重积分变二重积分
+            "pushButton_lim": ("lim", "lim_{∞}") # 普通极限变无穷极限
+        }
+
+        for btn_name, (normal, second) in button_changes.items():
+            if hasattr(self.ui, btn_name):
+                btn = getattr(self.ui, btn_name)
+                btn.setText(second if is_second else normal)
+
+    def update_stats_tab_buttons(self):
+        """更新统计标签页按钮"""
+        is_second = self.second_mode["tab_stat"]
+
+        # 统计按钮变化
+        button_changes = {
+            "pushButton_mea": ("x̅", "E(X)"),    # 样本均值变期望
+            "pushButton_vari": ("σ", "σ²")      # 标准差变方差
+        }
+
+        for btn_name, (normal, second) in button_changes.items():
+            if hasattr(self.ui, btn_name):
+                btn = getattr(self.ui, btn_name)
+                btn.setText(second if is_second else normal)
+
+    def update_matrix_tab_buttons(self):
+        """更新矩阵标签页按钮"""
+        is_second = self.second_mode["tab_marset"]
+
+        # 矩阵/集合按钮变化
+        button_changes = {
+            "pushButton_lsb": ("[", "⟨"),      # 方括号变尖括号
+            "pushButton_rsb": ("]", "⟩"),
+            "pushButton_Pm": ("P", "det")      # 排列变行列式
+        }
+
+        for btn_name, (normal, second) in button_changes.items():
+            if hasattr(self.ui, btn_name):
+                btn = getattr(self.ui, btn_name)
+                btn.setText(second if is_second else normal)
+
+    def update_character_tab_buttons(self):
+        """更新字符标签页按钮"""
+        is_second = self.second_mode["tab_char"]
+
+        # 更新小写字母为大写字母
+        for letter in "abcdefghijklmnopqrstuvwxyz":
+            btn_name = f"pushButton_{letter}"
+            if hasattr(self.ui, btn_name):
+                btn = getattr(self.ui, btn_name)
+                btn.setText(letter.upper() if is_second else letter)
+
+        # 更新希腊字母为大写
+        greek_letters = {
+            "alph": ("α", "Α"),
+            "beta": ("β", "Β"),
+            "gama": ("γ", "Γ"),
+            "delt": ("δ", "Δ"),
+            "epsi": ("ε", "Ε"),
+            "zeta": ("ζ", "Ζ"),
+            "eta": ("η", "Η"),
+            "thet": ("θ", "Θ"),
+            "iota": ("ι", "Ι"),
+            "kapa": ("κ", "Κ"),
+            "lamd": ("λ", "Λ"),
+            "mu": ("μ", "Μ"),
+            "nu": ("ν", "Ν"),
+            "ksi": ("ξ", "Ξ"),
+            "omic": ("ο", "Ο"),
+            "pi": ("π", "Π"),
+            "rho": ("ρ", "Ρ"),
+            "sigm": ("σ", "Σ"),
+            "tau": ("τ", "Τ"),
+            "upsi": ("υ", "Υ"),
+            "phi": ("φ", "Φ"),
+            "chi": ("χ", "Χ"),
+            "psi": ("ψ", "Ψ"),
+            "omeg": ("ω", "Ω")
+        }
+
+        for name, (lower, upper) in greek_letters.items():
+            btn_name = f"pushButton_{name}"
+            if hasattr(self.ui, btn_name):
+                btn = getattr(self.ui, btn_name)
+                btn.setText(upper if is_second else lower)
+
+        # 更新特殊符号
+        symbol_changes = {
+            "pushButton_sym1": ("∞", "⊥"),
+            "pushButton_sym2": ("z̄", "‖"),
+            "pushButton_sym3": ("%", "♯"),
+            "pushButton_sym4": ("mod", "♭"),
+            "pushButton_sym5": ("∂", "♮"),
+            "pushButton_sym6": ("!", "♦"),
+            "pushButton_sym7": ("a/b", "♣"),
+            "pushButton_sym8": ("°", "♠")
+        }
+
+        for btn_name, (normal, second) in symbol_changes.items():
+            if hasattr(self.ui, btn_name):
+                btn = getattr(self.ui, btn_name)
+                btn.setText(second if is_second else normal)
+
+    def on_button_clicked(self, button):
+        """按钮点击事件处理"""
+        # 获取按钮文本
+        text = button.text()
+
+        # 当前标签页
+        current_tab = self.ui.tabWidget.currentWidget().objectName()
+        is_second = self.second_mode.get(current_tab, False)
+
+        # 数字和基本运算符
+        if text in '0123456789.':
+            self.add_to_expression(text)
+        elif text in '+-*/()=<>≤≥≠':
+            # 运算符直接添加
+            self.add_to_expression(text)
+        # 特殊符号和常数
+        elif text == 'π':
+            self.add_to_expression('pi')
+        elif text == 'e':
+            self.add_to_expression('e')
+        elif text == 'i':
+            self.add_to_expression('I')  # sympy使用I表示虚数单位
+        # 基本函数
+        elif text == '√':
+            self.add_function("sqrt({})")
+        elif text == 'x²':  # 2nd模式下的平方
+            self.add_function("({})**2")
+        elif text == '^' or text == '**':
+            self.add_to_expression('**')
+        elif text == 'log':
+            self.add_function("log({}, 10)")  # 以10为底的对数
+        elif text == 'ln':  # 2nd模式下的自然对数
+            self.add_function("log({})")  # 默认以e为底
+        # 三角函数和反三角函数
+        elif text in ['sin', 'cos', 'tan', 'cot', 'sec', 'csc',
+                     'asin', 'acos', 'atan', 'acot', 'asec', 'acsc']:
+            self.add_function(f"{text}({{}})")
+        # 微积分操作
+        elif text == "'":  # 导数
+            self.calculate_derivative()
+        elif text == '∂':  # 偏导数
+            self.calculate_partial_derivative()
+        elif text == '∫':  # 积分
+            self.calculate_integral()
+        elif text == '∬':  # 二重积分
+            self.calculate_double_integral()
+        elif text == 'lim':  # 极限
+            self.add_function("limit({}, x, 0)")
+        # 代数操作
+        elif text == 'Factor':
+            self.apply_operation(sp.factor)
+        elif text == 'Expend':
+            self.apply_operation(sp.expand)
+        elif text == 'Simplify':
+            self.apply_operation(sp.simplify)
+        elif text == 'Solve':
+            self.solve_equation()
+        # 统计函数
+        elif text == 'x̅':  # 平均值
+            self.calculate_mean()
+        elif text == 'x̃':  # 中位数
+            self.calculate_median()
+        elif text == 'σ':  # 标准差
+            self.calculate_std()
+        elif text == 'σ²':  # 方差
+            self.calculate_variance()
+        # 矩阵/集合运算
+        elif text in '[]{}⟨⟩|∈∩∪\⊂⊃⊆⊇∀∃△∅#':
+            # 特殊字符直接添加到表达式
+            self.add_to_expression(text)
+        # 字母按钮 - 直接添加到表达式
+        else:
+            # 特殊转换为sympy识别的符号
+            sympy_replacements = {
+                'α': 'alpha', 'β': 'beta', 'γ': 'gamma', 'δ': 'delta',
+                'ε': 'epsilon', 'ζ': 'zeta', 'η': 'eta', 'θ': 'theta',
+                'ι': 'iota', 'κ': 'kappa', 'λ': 'lambda', 'μ': 'mu',
+                'ν': 'nu', 'ξ': 'xi', 'ο': 'omicron', 'π': 'pi',
+                'ρ': 'rho', 'σ': 'sigma', 'τ': 'tau', 'υ': 'upsilon',
+                'φ': 'phi', 'χ': 'chi', 'ψ': 'psi', 'ω': 'omega',
+                # 大写希腊字母
+                'Α': 'Alpha', 'Β': 'Beta', 'Γ': 'Gamma', 'Δ': 'Delta',
+                'Ε': 'Epsilon', 'Ζ': 'Zeta', 'Η': 'Eta', 'Θ': 'Theta',
+                'Ι': 'Iota', 'Κ': 'Kappa', 'Λ': 'Lambda', 'Μ': 'Mu',
+                'Ν': 'Nu', 'Ξ': 'Xi', 'Ο': 'Omicron', 'Π': 'Pi',
+                'Ρ': 'Rho', 'Σ': 'Sigma', 'Τ': 'Tau', 'Υ': 'Upsilon',
+                'Φ': 'Phi', 'Χ': 'Chi', 'Ψ': 'Psi', 'Ω': 'Omega'
+            }
+
+            if text in sympy_replacements:
+                self.add_to_expression(sympy_replacements[text])
+            else:
+                # 其他字符直接添加
+                self.add_to_expression(text)
+
+    def add_function(self, template):
+        """添加函数模板，保留光标在括号内"""
+        cursor_pos = self.expression_input.cursorPosition()
+        selected_text = self.expression_input.selectedText()
+
+        if selected_text:
+            # 如果有选中文本，将其放入函数中
+            new_text = template.format(selected_text)
+            self.current_expression = (
+                self.current_expression[:self.expression_input.selectionStart()] +
+                new_text +
+                self.current_expression[self.expression_input.selectionEnd():]
+            )
+            new_cursor_pos = self.expression_input.selectionStart() + len(new_text)
+        else:
+            # 如果没有选中文本，插入函数并将光标置于括号内
+            # 找到{}占位符的位置
+            placeholder_pos = template.find("{}")
+            if placeholder_pos != -1:
+                # 插入带空括号的函数
+                function_text = template.replace("{}", "")
+                self.current_expression = (
+                    self.current_expression[:cursor_pos] +
+                    function_text +
+                    self.current_expression[cursor_pos:]
+                )
+                # 光标位置为函数名后的括号内
+                new_cursor_pos = cursor_pos + placeholder_pos
+            else:
+                # 如果没有{}占位符，直接添加函数
+                self.current_expression = (
+                    self.current_expression[:cursor_pos] +
+                    template +
+                    self.current_expression[cursor_pos:]
+                )
+                new_cursor_pos = cursor_pos + len(template)
+
+        # 更新UI
+        self.expression_input.setText(self.current_expression)
+        self.expression_input.setCursorPosition(new_cursor_pos)
+        self.update_input_latex_display()
+
+    def calculate_partial_derivative(self):
+        """计算偏导数"""
+        try:
+            if not self.current_expression:
+                QMessageBox.warning(self, "输入错误", "请先输入表达式")
+                return
+
+            # 弹出对话框获取变量
+            var_name, ok = QMessageBox.question(self, "偏导数", 
+                                               "选择变量:
+[是] - 对x求偏导
+[否] - 对y求偏导",
+                                               QMessageBox.Yes | QMessageBox.No)
+
+            if not ok:
+                return
+
+            var = self.x if var_name == QMessageBox.Yes else self.y
+
+            # 解析表达式
+            expr = parse_expr(self.current_expression,
+                             local_dict={'x': self.x, 'y': self.y, 'z': self.z},
+                             transformations=self.transformations)
+
+            # 计算偏导数
+            result = sp.diff(expr, var)
+
+            # 更新表达式和显示
+            var_symbol = 'x' if var == self.x else 'y'
+            self.current_expression = f"∂({self.current_expression})/∂{var_symbol} = {result}"
+            self.expression_input.setText(self.current_expression)
+            self.update_input_latex_display()
+
+            # 更新LaTeX结果
+            latex_result = sp.latex(result)
+            self.update_result_latex_display(latex_result)
+
+        except Exception as e:
+            QMessageBox.critical(self, "偏导数错误", f"错误: {str(e)}")
+
+    def calculate_double_integral(self):
+        """计算二重积分"""
+        try:
+            if not self.current_expression:
+                QMessageBox.warning(self, "输入错误", "请先输入表达式")
+                return
+
+            # 解析表达式
+            expr = parse_expr(self.current_expression,
+                             local_dict={'x': self.x, 'y': self.y},
+                             transformations=self.transformations)
+
+            # 先对x积分
+            integral_x = sp.integrate(expr, self.x)
+
+            # 再对y积分
+            result = sp.integrate(integral_x, self.y)
+
+            # 更新表达式和显示
+            self.current_expression = f"∬{self.current_expression}dxdy = {result}"
+            self.expression_input.setText(self.current_expression)
+            self.update_input_latex_display()
+
+            # 更新LaTeX结果
+            latex_result = sp.latex(result)
+            self.update_result_latex_display(latex_result)
+
+        except Exception as e:
+            QMessageBox.critical(self, "二重积分错误", f"错误: {str(e)}")
+
+    def calculate_gcd(self):
+        """计算最大公约数"""
+        try:
+            data_str = self.stats_input.text()
+            if not data_str:
+                QMessageBox.warning(self, "输入错误", "请先输入数据")
+                return
+
+            # 解析输入数据为整数列表
+            data = [int(float(x)) for x in data_str.split(",")]
+
+            # 使用sympy计算最大公约数
+            result = data[0]
+            for num in data[1:]:
+                result = sp.gcd(result, num)
+
+            # 显示结果
+            self.current_expression = f"GCD({data_str}) = {result}"
+            self.expression_input.setText(self.current_expression)
+            self.update_input_latex_display()
+            self.update_result_latex_display(str(result))
+
+        except Exception as e:
+            QMessageBox.critical(self, "GCD错误", f"错误: {str(e)}")
+
+    def calculate_lcm(self):
+        """计算最小公倍数"""
+        try:
+            data_str = self.stats_input.text()
+            if not data_str:
+                QMessageBox.warning(self, "输入错误", "请先输入数据")
+                return
+
+            # 解析输入数据为整数列表
+            data = [int(float(x)) for x in data_str.split(",")]
+
+            # 使用sympy计算最小公倍数
+            result = data[0]
+            for num in data[1:]:
+                result = sp.lcm(result, num)
+
+            # 显示结果
+            self.current_expression = f"LCM({data_str}) = {result}"
+            self.expression_input.setText(self.current_expression)
+            self.update_input_latex_display()
+            self.update_result_latex_display(str(result))
+
+        except Exception as e:
+            QMessageBox.critical(self, "LCM错误", f"错误: {str(e)}")
+
+    def calculate_max(self):
+        """计算最大值"""
+        try:
+            data_str = self.stats_input.text()
+            if not data_str:
+                QMessageBox.warning(self, "输入错误", "请先输入数据")
+                return
+
+            # 解析输入数据
+            data = [float(x) for x in data_str.split(",")]
+            max_value = max(data)
+
+            # 显示结果
+            self.current_expression = f"Max({data_str}) = {max_value}"
+            self.expression_input.setText(self.current_expression)
+            self.update_input_latex_display()
+            self.update_result_latex_display(str(max_value))
+
+        except Exception as e:
+            QMessageBox.critical(self, "Max错误", f"错误: {str(e)}")
+
+    def calculate_min(self):
+        """计算最小值"""
+        try:
+            data_str = self.stats_input.text()
+            if not data_str:
+                QMessageBox.warning(self, "输入错误", "请先输入数据")
+                return
+
+            # 解析输入数据
+            data = [float(x) for x in data_str.split(",")]
+            min_value = min(data)
+
+            # 显示结果
+            self.current_expression = f"Min({data_str}) = {min_value}"
+            self.expression_input.setText(self.current_expression)
+            self.update_input_latex_display()
+            self.update_result_latex_display(str(min_value))
+
+        except Exception as e:
+            QMessageBox.critical(self, "Min错误", f"错误: {str(e)}")
+
+    def insert_answer(self):
+        """插入上一个计算结果"""
+        if self.history:
+            # 获取最后一个计算结果
+            last_result = self.history[-1].split("=")[-1].strip()
+            self.add_to_expression(last_result)
+
+    def insert_sqrt(self):
+        """插入平方根函数"""
+        self.add_function("sqrt({})")
+
+    def insert_log(self):
+        """插入对数函数"""
+        # 根据当前2nd模式决定是ln还是log
+        current_tab = self.ui.tabWidget.currentWidget().objectName()
+        if self.second_mode.get(current_tab, False):
+            # 自然对数(ln)
+            self.add_function("log({})")
+        else:
+            # 常用对数(log10)
+            self.add_function("log({}, 10)")
+
+    def insert_trig_function(self, func_name):
+        """插入三角函数"""
+        # 获取当前标签页和2nd状态
+        current_tab = self.ui.tabWidget.currentWidget().objectName()
+        is_second = self.second_mode.get(current_tab, False)
+
+        # 根据2nd状态决定是三角函数还是反三角函数
+        if is_second:
+            func = "a" + func_name
+        else:
+            func = func_name
+
+        self.add_function(f"{func}({{}})")
+
+    def insert_special_function(self, func_name):
+        """插入特殊函数"""
+        func_templates = {
+            "Si": "Si({})",      # 正弦积分
+            "Ci": "Ci({})",      # 余弦积分
+            "li": "li({})",      # 对数积分
+            "O": "O({})",        # 大O符号
+            "Sum": "Sum({}, (i, 0, n))"  # 求和符号
+        }
+
+        if func_name in func_templates:
+            self.add_function(func_templates[func_name])
+        else:
+            self.add_function(f"{func_name}({{}})")
+
+    def toggle_hyperbolic(self):
+        """切换双曲函数模式"""
+        # 获取当前标签页
+        current_tab = "trigo_tab"
+
+        # 检查当前是否为双曲模式
+        hyp_button = self.ui.pushButton_hyp
+        is_hyp_mode = hyp_button.styleSheet() != ""
+
+        # 切换双曲模式
+        if is_hyp_mode:
+            hyp_button.setStyleSheet("")
+            # 恢复正常三角函数
+            if hasattr(self.ui, "pushButton_sin"):
+                self.ui.pushButton_sin.setText("sin")
+            if hasattr(self.ui, "pushButton_cos"):
+                self.ui.pushButton_cos.setText("cos")
+            if hasattr(self.ui, "pushButton_tan"):
+                self.ui.pushButton_tan.setText("tan")
+        else:
+            hyp_button.setStyleSheet("background-color: lightgreen;")
+            # 切换为双曲函数
+            if hasattr(self.ui, "pushButton_sin"):
+                self.ui.pushButton_sin.setText("sinh")
+            if hasattr(self.ui, "pushButton_cos"):
+                self.ui.pushButton_cos.setText("cosh")
+            if hasattr(self.ui, "pushButton_tan"):
+                self.ui.pushButton_tan.setText("tanh")
+
+    def toggle_sign(self):
+        """切换正负号"""
+        # 获取当前表达式
+        expr = self.current_expression
+        cursor_pos = self.expression_input.cursorPosition()
+
+        # 找到光标所在位置的数字
+        # 向左搜索数字的起始位置
+        start = cursor_pos
+        while start > 0 and (expr[start-1].isdigit() or expr[start-1] == '.'):
+            start -= 1
+
+        # 检查数字前是否有负号
+        if start > 0 and expr[start-1] == '-':
+            # 有负号，移除负号
+            self.current_expression = expr[:start-1] + expr[start:]
+            self.expression_input.setText(self.current_expression)
+            self.expression_input.setCursorPosition(cursor_pos - 1)
+        else:
+            # 没有负号，添加负号
+            self.current_expression = expr[:start] + '-' + expr[start:]
+            self.expression_input.setText(self.current_expression)
+            self.expression_input.setCursorPosition(cursor_pos + 1)
+
+        self.update_input_latex_display()
+
+    def wrap_expression(self, func_name):
+        """包装表达式，如abs(), ceiling()等"""
+        self.add_function(f"{func_name}({{}})")
+
+    
+    def calculate_partial_derivative(self):
+        """计算偏导数 - 2nd模式下的导数功能"""
+        try:
+            if not self.current_expression:
+                QMessageBox.warning(self, "输入错误", "请先输入表达式")
+                return
+
+            # 询问用户要对哪个变量求偏导
+            var_name, ok = QInputDialog.getText(self, "偏导数", "对哪个变量求偏导数? (默认为x)")
+            if ok:
+                if not var_name:
+                    var_name = 'x'
+
+                var = sp.Symbol(var_name)
+                expr = parse_expr(self.current_expression, 
+                                  local_dict={'x': self.x, 'y': self.y, 'z': self.z},
+                                  transformations=self.transformations)
+                derivative = sp.diff(expr, var)
+
+                result = f"∂({self.current_expression})/∂{var_name} = {derivative}"
+                self.expression_input.setText(result)
+                self.current_expression = result
+                self.update_input_latex_display()
+
+                # 添加到历史
+                self.add_to_history(result)
+        except Exception as e:
+            QMessageBox.critical(self, "偏导数错误", f"错误: {str(e)}")
+
+    def calculate_double_integral(self):
+        """计算二重积分 - 2nd模式下的积分功能"""
+        try:
+            if not self.current_expression:
+                QMessageBox.warning(self, "输入错误", "请先输入表达式")
+                return
+
+            # 询问用户积分变量和区间
+            var1_name, ok1 = QInputDialog.getText(self, "二重积分", "第一个积分变量? (默认为x)")
+            if not ok1:
+                return
+
+            var1_name = var1_name if var1_name else 'x'
+            var1 = sp.Symbol(var1_name)
+
+            var2_name, ok2 = QInputDialog.getText(self, "二重积分", "第二个积分变量? (默认为y)")
+            if not ok2:
+                return
+
+            var2_name = var2_name if var2_name else 'y'
+            var2 = sp.Symbol(var2_name)
+
+            # 解析表达式
+            expr = parse_expr(self.current_expression,
+                             local_dict={'x': self.x, 'y': self.y, 'z': self.z},
+                             transformations=self.transformations)
+
+            # 计算二重积分 (无界积分)
+            double_integral = sp.integrate(sp.integrate(expr, var1), var2)
+
+            result = f"∬{self.current_expression} d{var1_name}d{var2_name} = {double_integral} + C"
+            self.expression_input.setText(result)
+            self.current_expression = result
+            self.update_input_latex_display()
+
+            # 添加到历史
+            self.add_to_history(result)
+        except Exception as e:
+            QMessageBox.critical(self, "二重积分错误", f"错误: {str(e)}")
+
+    def insert_special_function(self, func_name):
+        """插入特殊函数"""
+        if func_name == "Si":
+            self.add_function("Si({})")  # 正弦积分
+        elif func_name == "Ci":
+            self.add_function("Ci({})")  # 余弦积分
+        elif func_name == "li":
+            self.add_function("li({})")  # 对数积分
+        elif func_name == "O":
+            self.add_function("O({})")  # 大O记号
+        elif func_name == "Sum":
+            self.add_function("Sum({}, (i, 0, n))")  # 求和
+
+    def insert_sqrt(self):
+        """插入平方根函数"""
+        # 检查是否在2nd模式
+        current_tab = self.ui.tabWidget.currentWidget().objectName()
+        is_second = self.second_mode.get(current_tab, False)
+
+        if is_second:
+            # 在2nd模式下插入平方
+            self.add_function("({})**2")
+        else:
+            # 正常模式下插入平方根
+            self.add_function("sqrt({})")
+
+    def insert_log(self):
+        """插入对数函数"""
+        # 检查是否在2nd模式
+        current_tab = self.ui.tabWidget.currentWidget().objectName()
+        is_second = self.second_mode.get(current_tab, False)
+
+        if is_second:
+            # 在2nd模式下插入自然对数
+            self.add_function("log({})")  # 默认以e为底
+        else:
+            # 正常模式下插入常用对数
+            self.add_function("log({}, 10)")  # 以10为底
+
+    def insert_trig_function(self, func_name):
+        """插入三角函数"""
+        # 检查是否在2nd模式
+        current_tab = self.ui.tabWidget.currentWidget().objectName()
+        is_second = self.second_mode.get(current_tab, False)
+
+        # 检查是否在双曲模式
+        hyperbolic = hasattr(self, "hyperbolic_mode") and self.hyperbolic_mode
+
+        if is_second:
+            # 在2nd模式下为反三角函数
+            if hyperbolic:
+                # 反双曲函数
+                self.add_function(f"a{func_name}h({{}})")
+            else:
+                # 反三角函数
+                self.add_function(f"a{func_name}({{}})")
+        else:
+            if hyperbolic:
+                # 双曲函数
+                self.add_function(f"{func_name}h({{}})")
+            else:
+                # 普通三角函数
+                self.add_function(f"{func_name}({{}})")
+
+    def toggle_hyperbolic(self):
+        """切换双曲函数模式"""
+        if not hasattr(self, "hyperbolic_mode"):
+            self.hyperbolic_mode = False
+
+        self.hyperbolic_mode = not self.hyperbolic_mode
+
+        # 设置按钮高亮
+        if hasattr(self.ui, "pushButton_hyp"):
+            if self.hyperbolic_mode:
+                self.ui.pushButton_hyp.setStyleSheet("background-color: lightgreen;")
+            else:
+                self.ui.pushButton_hyp.setStyleSheet("")
+
+    def calculate_gcd(self):
+        """计算最大公约数"""
+        try:
+            data_str = self.stats_input.text()
+            if not data_str:
+                QMessageBox.warning(self, "输入错误", "请先输入数据")
+                return
+
+            # 解析输入数据
+            data = [int(x) for x in data_str.split(",")]
+
+            # 使用sympy计算最大公约数
+            gcd_result = data[0]
+            for i in range(1, len(data)):
+                gcd_result = sp.gcd(gcd_result, data[i])
+
+            # 显示结果
+            result = f"GCD: {gcd_result}"
+            self.expression_input.setText(result)
+            self.current_expression = result
+            self.update_input_latex_display()
+
+            # 添加到历史
+            self.add_to_history(result)
+        except Exception as e:
+            QMessageBox.critical(self, "GCD错误", f"错误: {str(e)}")
+
+    def calculate_lcm(self):
+        """计算最小公倍数"""
+        try:
+            data_str = self.stats_input.text()
+            if not data_str:
+                QMessageBox.warning(self, "输入错误", "请先输入数据")
+                return
+
+            # 解析输入数据
+            data = [int(x) for x in data_str.split(",")]
+
+            # 使用sympy计算最小公倍数
+            lcm_result = data[0]
+            for i in range(1, len(data)):
+                lcm_result = sp.lcm(lcm_result, data[i])
+
+            # 显示结果
+            result = f"LCM: {lcm_result}"
+            self.expression_input.setText(result)
+            self.current_expression = result
+            self.update_input_latex_display()
+
+            # 添加到历史
+            self.add_to_history(result)
+        except Exception as e:
+            QMessageBox.critical(self, "LCM错误", f"错误: {str(e)}")
+
+    def calculate_max(self):
+        """计算最大值"""
+        try:
+            data_str = self.stats_input.text()
+            if not data_str:
+                QMessageBox.warning(self, "输入错误", "请先输入数据")
+                return
+
+            # 解析输入数据
+            data = [float(x) for x in data_str.split(",")]
+            max_value = max(data)
+
+            # 显示结果
+            result = f"Max: {max_value}"
+            self.expression_input.setText(result)
+            self.current_expression = result
+            self.update_input_latex_display()
+
+            # 添加到历史
+            self.add_to_history(result)
+        except Exception as e:
+            QMessageBox.critical(self, "Max错误", f"错误: {str(e)}")
+
+    def calculate_min(self):
+        """计算最小值"""
+        try:
+            data_str = self.stats_input.text()
+            if not data_str:
+                QMessageBox.warning(self, "输入错误", "请先输入数据")
+                return
+
+            # 解析输入数据
+            data = [float(x) for x in data_str.split(",")]
+            min_value = min(data)
+
+            # 显示结果
+            result = f"Min: {min_value}"
+            self.expression_input.setText(result)
+            self.current_expression = result
+            self.update_input_latex_display()
+
+            # 添加到历史
+            self.add_to_history(result)
+        except Exception as e:
+            QMessageBox.critical(self, "Min错误", f"错误: {str(e)}")
+
+    def wrap_expression(self, func_name):
+        """将表达式包装在函数中"""
+        cursor_pos = self.expression_input.cursorPosition()
+        selected_text = self.expression_input.selectedText()
+
+        if selected_text:
+            # 有选中文本，将其放入函数中
+            new_text = f"{func_name}({selected_text})"
+            self.current_expression = (
+                self.current_expression[:self.expression_input.selectionStart()] +
+                new_text +
+                self.current_expression[self.expression_input.selectionEnd():]
+            )
+            new_cursor_pos = self.expression_input.selectionStart() + len(new_text)
+        else:
+            # 无选中文本，插入函数模板
+            new_text = f"{func_name}()"
+            self.current_expression = (
+                self.current_expression[:cursor_pos] +
+                new_text +
+                self.current_expression[cursor_pos:]
+            )
+            new_cursor_pos = cursor_pos + len(func_name) + 1  # 光标位于括号内
+
+        self.expression_input.setText(self.current_expression)
+        self.expression_input.setCursorPosition(new_cursor_pos)
+        self.update_input_latex_display()
+
+    def insert_answer(self):
+        """插入上一个答案"""
+        if hasattr(self, "last_answer"):
+            self.add_to_expression(str(self.last_answer))
+        else:
+            QMessageBox.information(self, "提示", "尚无可用的上一个答案")
+
+    def toggle_sign(self):
+        """切换正负号"""
+        cursor_pos = self.expression_input.cursorPosition()
+        selected_text = self.expression_input.selectedText()
+
+        if selected_text:
+            # 有选中文本，在其前添加负号
+            new_text = f"-({selected_text})"
+            self.current_expression = (
+                self.current_expression[:self.expression_input.selectionStart()] +
+                new_text +
+                self.current_expression[self.expression_input.selectionEnd():]
+            )
+            new_cursor_pos = self.expression_input.selectionStart() + len(new_text)
+        else:
+            # 无选中文本，检查光标位置前是否有数字或表达式
+            # 这里简化处理，直接插入"(-1)*"
+            new_text = "(-1)*"
+            self.current_expression = (
+                self.current_expression[:cursor_pos] +
+                new_text +
+                self.current_expression[cursor_pos:]
+            )
+            new_cursor_pos = cursor_pos + len(new_text)
+
+        self.expression_input.setText(self.current_expression)
+        self.expression_input.setCursorPosition(new_cursor_pos)
+        self.update_input_latex_display()
+
+    def add_to_history(self, item):
+        """添加项目到历史记录"""
+        self.history.append(item)
+        if hasattr(self, "history_list"):
+            self.history_list.addItem(item)
 
     def create_display_area(self):
         """创建显示区域，包含表达式输入和LaTeX渲染（输入和结果分开）"""
